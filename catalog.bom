@@ -18,8 +18,8 @@
 #
 brooklyn.catalog:
   id: brooklyn-zookeeper-ensemble
-  version: 0.10.0-SNAPSHOT
-  name: ZooKeeper ensemble
+  version: 0.11.0-SNAPSHOT #BROOKLYN_VERSION
+  name: "ZooKeeper Ensemble"
   description: A cluster of ZooKeeper servers. Apache ZooKeeper enables highly reliable distributed coordination.
   itemType: template
   iconUrl: https://zookeeper.apache.org/images/zookeeper_small.gif

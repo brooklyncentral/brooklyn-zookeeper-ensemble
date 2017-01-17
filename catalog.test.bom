@@ -17,25 +17,76 @@
 # under the License.
 #
 brooklyn.catalog:
-  id: brooklyn-zookeeper-ensemble-tests
-  version: 0.2
-  itemType: template
-  name: Zookeeper Ensemble tests
-  description: Test that Zookeeper Ensemble is running correctly
-  license_code: Apache-2.0
-  license_url: http://www.apache.org/licenses/LICENSE-2.0.txt
-  item:
-    services:
-    - type: brooklyn-zookeeper-ensemble
-      id: zookeeperensemble
-    - type: org.apache.brooklyn.test.framework.TestCase
-      name: Test case
-      targetId: zookeeperensemble
-      brooklyn.config:
-        timeout: 1h
-      brooklyn.children:
-      - type: org.apache.brooklyn.test.framework.TestSensor
-        name: Check Zookeeper Ensemble is up
-        sensor: service.isUp
-        assert:
-        - equals: true
+  version: 0.11.0-SNAPSHOT #BROOKLYN_VERSION
+  items:
+  - "https://raw.githubusercontent.com/brooklyncentral/common-catalog-utils/master/common-tests/src/main/resources/commontests/common.tests.bom"
+  - id: brooklyn-zookeeper-ensemble-tests
+    itemType: template
+    name: "ZooKeeper Ensemble Tests"
+    description: Test that Zookeeper Ensemble is running correctly
+    license_code: Apache-2.0
+    license_url: http://www.apache.org/licenses/LICENSE-2.0.txt
+    iconUrl: https://zookeeper.apache.org/images/zookeeper_small.gif
+    item:
+      services:
+      - type: brooklyn-zookeeper-ensemble
+        id: target-app
+      - type: test-case
+        name: "ZK Tests"
+        brooklyn.config:
+          targetId: target-app
+          targetResolutionTimeout: 10s
+          timeout: 30m
+        brooklyn.children:
+        - name: "1. ZK up and running"
+          type: assert-up-and-running-initial
+        - name: "2. Check ZK Cluster Size"
+          type: assert-sensor
+          brooklyn.config:
+            sensor: "group.members.count"
+            assert:
+            - equals: 3
+        - name: "3. Test ZK Cluster Replication"
+          type: test-case
+          brooklyn.config:
+            target: $brooklyn:entity("target-app")
+          brooklyn.children:
+          - name: "3. Test ZK Cluster Replication"
+            type: test-case
+            brooklyn.config:
+              target: $brooklyn:entity("target-app")
+            brooklyn.children:
+            - name: "3.1 Write z-nodes"
+              type: loop-test-case
+              brooklyn.config:
+                test.spec:
+                  $brooklyn:entitySpec:
+                    name: "3.1.x Write z-node"
+                    type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+                    command:
+                      $brooklyn:formatString:
+                        - "%s/bin/zkCli.sh -server %s create /qa-test-z-node-%s.cfg id=%s"
+                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("expandedinstall.dir")
+                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.endpoint")
+                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.myid")
+                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("entity.id")
+                    assertErr:
+                      - matches: "Created\\s\\/qa-test-z-node-[1-3]\\.cfg"
+
+            - name: "3.2 Read z-nodes"
+              type: loop-test-case
+              brooklyn.config:
+                test.spec:
+                  $brooklyn:entitySpec:
+                    name: "3.2.x Read z-node"
+                    type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+                    command:
+                      $brooklyn:formatString:
+                        - "%s/bin/zkCli.sh -server %s ls /"
+                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("expandedinstall.dir")
+                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.endpoint")
+                    assertOut:
+                    - contains: 'zookeeper'
+                    - contains: 'qa-test-z-node-1.cfg'
+                    - contains: 'qa-test-z-node-2.cfg'
+                    - contains: 'qa-test-z-node-3.cfg'
