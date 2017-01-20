@@ -51,42 +51,35 @@ brooklyn.catalog:
           brooklyn.config:
             target: $brooklyn:entity("target-app")
           brooklyn.children:
-          - name: "3. Test ZK Cluster Replication"
-            type: test-case
+          - name: "3.1 Write z-nodes"
+            type: loop-test-case
             brooklyn.config:
-              target: $brooklyn:entity("target-app")
-            brooklyn.children:
-            - name: "3.1 Write z-nodes"
-              type: loop-test-case
-              brooklyn.config:
-                test.spec:
-                  $brooklyn:entitySpec:
-                    name: "3.1.x Write z-node"
-                    type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-                    command:
-                      $brooklyn:formatString:
-                        - "%s/bin/zkCli.sh -server %s create /qa-test-z-node-%s.cfg id=%s"
-                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("expandedinstall.dir")
-                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.endpoint")
-                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.myid")
-                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("entity.id")
-                    assertErr:
-                      - matches: "Created\\s\\/qa-test-z-node-[1-3]\\.cfg"
-
-            - name: "3.2 Read z-nodes"
-              type: loop-test-case
-              brooklyn.config:
-                test.spec:
-                  $brooklyn:entitySpec:
-                    name: "3.2.x Read z-node"
-                    type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
-                    command:
-                      $brooklyn:formatString:
-                        - "%s/bin/zkCli.sh -server %s ls /"
-                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("expandedinstall.dir")
-                        - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.endpoint")
-                    assertOut:
-                    - contains: 'zookeeper'
-                    - contains: 'qa-test-z-node-1.cfg'
-                    - contains: 'qa-test-z-node-2.cfg'
-                    - contains: 'qa-test-z-node-3.cfg'
+              test.spec:
+                $brooklyn:entitySpec:
+                  name: "3.1.x Write z-node"
+                  type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+                  timeout: 2m
+                  command:
+                    $brooklyn:formatString:
+                      - "%s/bin/zkCli.sh -server %s create /qa-test-z-node-%s.cfg id=%s"
+                      - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("expandedinstall.dir")
+                      - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.endpoint")
+                      - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.myid")
+                      - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("entity.id")
+                  assertErr:
+                    - matches: "Created\\s\\/qa-test-z-node-\\d+\\.cfg"
+          - name: "3.2 Read z-nodes"
+            type: loop-test-case
+            brooklyn.config:
+              test.spec:
+                $brooklyn:entitySpec:
+                  name: "3.2.x Read z-node"
+                  type: org.apache.brooklyn.test.framework.SimpleShellCommandTest
+                  timeout: 2m
+                  command:
+                    $brooklyn:formatString:
+                      - '%s/bin/zkCli.sh -server %s ls / | tail -n1'
+                      - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("expandedinstall.dir")
+                      - $brooklyn:entity($brooklyn:config("target")).attributeWhenReady("zookeeper.endpoint")
+                  assertOut:
+                    - matches: '(.*qa-test-z-node.*){3}'
